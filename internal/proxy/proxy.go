@@ -68,9 +68,9 @@ func ProxyConnections(client, backend *net.TCPConn, logger *log.Logger) {
 		err       error
 	}
 
-  // buffered channel with capacity of 2
-	results := make(chan copyResult, 2)
-	
+	const copyOperations = 2
+	results := make(chan copyResult, copyOperations) // buffered channel
+
 	// setup io.Copy, publish result to channel when its finishes
 	copyStream := func(destination, source *net.TCPConn, direction string) {
 		_, copyErr := io.Copy(destination, source)
@@ -82,19 +82,19 @@ func ProxyConnections(client, backend *net.TCPConn, logger *log.Logger) {
 		results <- copyResult{direction: direction, err: copyErr}
 	}
 
-  // create two simultaneous copy operations — one for each direction
+	// create two simultaneous copy operations — one for each direction
 	go copyStream(backend, client, "client-to-backend")
 	go copyStream(client, backend, "backend-to-client")
 
-  // receives exactly two results, one from each copy goroutine
-  // either direction may finish first and sends its result
-	// after both results are received, this function returns
-	for i := 0; i < 2; i++ {
-		result := <-results
+	// the loop runs twice, it waits for both copy operations to report completion
+	// either copy direction may finish first and send its result
+	for i := 0; i < copyOperations; i++ {
+		result := <-results // block until a goroutine sends a result
 		if result.err != nil {
 			logger.Printf("copy stopped direction=%s error=%v", result.direction, result.err)
 		}
 	}
+	// after both results are received, this function returns
 }
 
 func loggerOrDefault(logger *log.Logger) *log.Logger {
