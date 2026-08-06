@@ -29,6 +29,7 @@ func Serve(listener net.Listener, backendAddress string, logger *log.Logger) err
 			continue
 		}
 
+		// spin off a goroutine for each client
 		logger.Printf("accepted client=%s", client.RemoteAddr())
 		go connectAndProxy(client, backendAddress, logger)
 	}
@@ -67,19 +68,27 @@ func ProxyConnections(client, backend *net.TCPConn, logger *log.Logger) {
 		err       error
 	}
 
+  // buffered channel with capacity of 2
 	results := make(chan copyResult, 2)
+	
+	// setup io.Copy, publish result to channel when its finishes
 	copyStream := func(destination, source *net.TCPConn, direction string) {
 		_, copyErr := io.Copy(destination, source)
 		closeErr := destination.CloseWrite()
 		if copyErr == nil {
 			copyErr = closeErr
 		}
+		// send result to channel
 		results <- copyResult{direction: direction, err: copyErr}
 	}
 
+  // create two simultaneous copy operations — one for each direction
 	go copyStream(backend, client, "client-to-backend")
 	go copyStream(client, backend, "backend-to-client")
 
+  // receives exactly two results, one from each copy goroutine
+  // either direction may finish first and sends its result
+	// after both results are received, this function returns
 	for i := 0; i < 2; i++ {
 		result := <-results
 		if result.err != nil {
