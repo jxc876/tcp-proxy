@@ -69,6 +69,7 @@ func ProxyConnections(client, backend *net.TCPConn, logger *log.Logger) {
 	}
 
 	const copyOperations = 2
+	// each copy goroutine can publish its result without waiting (as the buffer isn’t full)
 	results := make(chan copyResult, copyOperations) // buffered channel
 
 	// setup io.Copy, publish result to channel when its finishes
