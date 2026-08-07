@@ -92,9 +92,7 @@ func ProxyConnections(client, backend *net.TCPConn, logger *log.Logger) {
 	// either copy direction may finish first and send its result
 	for i := 0; i < copyOperations; i++ {
 		result := <-results // block until a goroutine sends a result
-		if result.err != nil {
-			logger.Printf("copy stopped direction=%s error=%v", result.direction, result.err)
-		}
+		logger.Printf("copy stopped - direction=%s error=%v", result.direction, result.err)
 	}
 	// after both results are received, this function returns
 }
