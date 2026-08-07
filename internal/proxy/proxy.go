@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"sync"
 )
 
 // Serve accepts TCP clients from listener and proxies each one to backendAddress.
@@ -64,37 +65,27 @@ func ProxyConnections(client, backend *net.TCPConn, logger *log.Logger) {
 	defer client.Close()
 	defer backend.Close()
 
-	type copyResult struct {
-		direction string
-		err       error
-	}
+	var waitGroup sync.WaitGroup
+	waitGroup.Add(2)
 
-	const copyOperations = 2
-	// each copy goroutine can publish its result without waiting (as the buffer isn’t full)
-	results := make(chan copyResult, copyOperations) // buffered channel
-
-	// setup io.Copy, publish result to channel when its finishes
+	// Set up io.Copy and signal the WaitGroup when it finishes.
 	copyStream := func(destination, source *net.TCPConn, direction string) {
+		defer waitGroup.Done()
+
 		_, copyErr := io.Copy(destination, source)
 		closeErr := destination.CloseWrite()
 		if copyErr == nil {
 			copyErr = closeErr
 		}
-		// send result to channel
-		results <- copyResult{direction: direction, err: copyErr}
+		logger.Printf("copy stopped - direction=%s error=%v", direction, copyErr)
 	}
 
 	// create two simultaneous copy operations — one for each direction
 	go copyStream(backend, client, "client-to-backend")
 	go copyStream(client, backend, "backend-to-client")
 
-	// the loop runs twice, it waits for both copy operations to report completion
-	// either copy direction may finish first and send its result
-	for i := 0; i < copyOperations; i++ {
-		result := <-results // block until a goroutine sends a result
-		logger.Printf("copy stopped - direction=%s error=%v", result.direction, result.err)
-	}
-	// after both results are received, this function returns
+	// Block until both copy operations call Done, then return.
+	waitGroup.Wait()
 }
 
 func loggerOrDefault(logger *log.Logger) *log.Logger {
