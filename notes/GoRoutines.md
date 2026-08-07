@@ -107,7 +107,7 @@ for i := 0; i < copyOperations; i++ {
 }
 ```
 
-The results arrive in completion order, which may differ from the order in
+The results arrive in completion order. This may differ from the order in
 which the goroutines were started. If neither copy has finished, the receive
 blocks. After one finishes, its result becomes available and the loop then
 waits for the other operation.
@@ -116,7 +116,7 @@ The buffer capacity equals the number of producers, and each producer sends
 once. Consequently, both copy goroutines can publish their results and exit,
 even if the receiving loop has not read either result yet.
 
-An unbuffered channel would also work in this particular design because the
+An *unbuffered channel* would also work in this particular design because the
 calling goroutine immediately receives twice. The difference is that each copy
 goroutine would wait at its send until the receiving loop was ready. Here,
 buffering mainly reduces synchronization between the workers and receiver; it
@@ -124,11 +124,12 @@ is unlikely to provide a meaningful performance improvement.
 
 ## Rules to remember
 
-- Unbuffered channel: sender and receiver must meet for the transfer.
-- Buffered channel: a sender can proceed until the buffer is full.
-- Any receive blocks while no value is available.
-- Buffer capacity is not a limit on the total number of values ever sent; it is
-  the number of unread values the channel can hold at once.
-- Starting a goroutine does not automatically wait for it or collect its result.
-- Ensure every expected send has a receiver, and every expected receive can
-  eventually get a value, or the program may deadlock.
+- Unbuffered channel — sender and receiver must meet for the transfer
+- Buffered channel — a sender can proceed until the buffer is full
+- Any receive blocks while no value is available
+- Buffer capacity is not a limit on the total number of values ever sent 
+- Buffer capcity is the number of unread values the channel can hold at once
+- Starting a goroutine does not automatically wait for it or collect its result
+- Ensure every expected send has a receiver
+- Ensure every expected receive can eventually get a value
+- Otherwise the program may deadlock
