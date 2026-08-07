@@ -81,6 +81,7 @@ Buffering therefore allows a producer to publish a value and continue—or
 exit—without waiting for a consumer to receive that specific value immediately.
 This is true only while capacity remains available.
 
+
 ## Example
 
 The proxy in this project uses a channel to communicate results.
@@ -122,14 +123,84 @@ goroutine would wait at its send until the receiving loop was ready. Here,
 buffering mainly reduces synchronization between the workers and receiver; it
 is unlikely to provide a meaningful performance improvement.
 
+
 ## Rules to remember
 
 - Unbuffered channel — sender and receiver must meet for the transfer
 - Buffered channel — a sender can proceed until the buffer is full
 - Any receive blocks while no value is available
 - Buffer capacity is not a limit on the total number of values ever sent 
-- Buffer capcity is the number of unread values the channel can hold at once
+- Buffer capacity is the number of unread values the channel can hold at once
 - Starting a goroutine does not automatically wait for it or collect its result
+- WaitGroups coordinate completion but do not carry results or errors
 - Ensure every expected send has a receiver
 - Ensure every expected receive can eventually get a value
 - Otherwise the program may deadlock
+
+
+## WaitGroups
+
+A `sync.WaitGroup` lets one goroutine wait for a group of other goroutines to
+finish. It acts like a thread-safe countdown counter:
+
+```go
+var wg sync.WaitGroup
+
+wg.Add(2)
+
+go func() {
+	defer wg.Done()
+	copyClientToBackend()
+}()
+
+go func() {
+	defer wg.Done()
+	copyBackendToClient()
+}()
+
+wg.Wait()
+```
+
+The lifecycle is:
+
+1. `Add(2)` registers two operations that must finish.
+2. Each operation calls `Done()` when it finishes, reducing the counter by one.
+3. `Wait()` blocks until the counter reaches zero.
+
+Calling `Done()` with `defer` ensures it runs whenever the goroutine returns:
+
+```go
+go func() {
+	defer wg.Done()
+	// Do work...
+}()
+```
+
+Call `Add` before starting the goroutine. Calling it inside the goroutine can
+create a race in which `Wait()` sees a counter of zero and returns too early:
+
+```go
+wg.Add(1)
+go func() {
+	defer wg.Done()
+	// Do work...
+}()
+```
+
+A WaitGroup communicates only that all registered operations have finished. It
+does not communicate results, errors, which operation finished first, or the
+order in which operations finished.
+
+Use a WaitGroup when the goal is simply to wait for all operations. Use a
+channel when the operations need to send values or errors. A channel can also
+provide completion information when each goroutine sends exactly one result,
+as it does in this proxy.
+
+Common mistakes include:
+
+- Forgetting `Done()`, which can cause `Wait()` to block forever
+- Calling `Done()` too many times, which causes a negative-counter panic
+- Calling `Add` inside the new goroutine instead of before starting it
+- Expecting a WaitGroup to make other shared data safe; shared data may still
+  require a mutex or channel
+- Expecting a WaitGroup to cancel goroutines; it only waits for them
