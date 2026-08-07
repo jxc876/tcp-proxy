@@ -14,6 +14,7 @@ func Serve(listener net.Listener, backendAddress string, logger *log.Logger) err
 	logger = loggerOrDefault(logger)
 
 	for {
+		// accept a new client connection
 		connection, err := listener.Accept()
 		if err != nil {
 			if errors.Is(err, net.ErrClosed) {
@@ -31,11 +32,11 @@ func Serve(listener net.Listener, backendAddress string, logger *log.Logger) err
 
 		// spin off a goroutine for each client
 		logger.Printf("accepted client=%s", client.RemoteAddr())
-		go connectAndProxy(client, backendAddress, logger)
+		go connectBackendAndProxy(client, backendAddress, logger)
 	}
 }
 
-func connectAndProxy(client *net.TCPConn, backendAddress string, logger *log.Logger) {
+func connectBackendAndProxy(client *net.TCPConn, backendAddress string, logger *log.Logger) {
 	resolvedBackend, err := net.ResolveTCPAddr("tcp", backendAddress)
 	if err != nil {
 		logger.Printf("backend address invalid client=%s backend=%s error=%v", client.RemoteAddr(), backendAddress, err)
