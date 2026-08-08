@@ -22,6 +22,11 @@ go run ./cmd/demo-backend
 Terminal 2 — starts the load balancer and proxies to the backend:
 
 ```sh
+# generate a binary
+go build -o tcp-proxy ./cmd/load-balancer
+./tcp-proxy
+
+# or simply
 go run ./cmd/load-balancer
 ```
 
