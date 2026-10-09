@@ -24,7 +24,9 @@ func Serve(listener net.Listener, backendAddress string, logger *log.Logger) err
 			return err
 		}
 
+		// type assertion on connection, ensure it's a TCP connection
 		client, ok := connection.(*net.TCPConn)
+		
 		if !ok {
 			logger.Printf("rejecting non-TCP connection from %s", connection.RemoteAddr())
 			_ = connection.Close()
