@@ -26,7 +26,7 @@ func Serve(listener net.Listener, backendAddress string, logger *log.Logger) err
 
 		// type assertion on connection, ensure it's a TCP connection
 		client, ok := connection.(*net.TCPConn)
-		
+
 		if !ok {
 			logger.Printf("rejecting non-TCP connection from %s", connection.RemoteAddr())
 			_ = connection.Close()
@@ -40,6 +40,10 @@ func Serve(listener net.Listener, backendAddress string, logger *log.Logger) err
 }
 
 func connectBackendAndProxy(client *net.TCPConn, backendAddress string, logger *log.Logger) {
+	// convert string (ex: "localhost:8080") into *net.TCPAddr object
+	// can resolve DNS hostname ()"example.com:8080) to IP 
+	// https://pkg.go.dev/net#ResolveTCPAddr
+	// https://pkg.go.dev/net#TCPAddr
 	resolvedBackend, err := net.ResolveTCPAddr("tcp", backendAddress)
 	if err != nil {
 		logger.Printf("backend address invalid client=%s backend=%s error=%v", client.RemoteAddr(), backendAddress, err)
@@ -47,6 +51,8 @@ func connectBackendAndProxy(client *net.TCPConn, backendAddress string, logger *
 		return
 	}
 
+	// establishes the connection
+	// https://pkg.go.dev/net#DialTCP
 	backend, err := net.DialTCP("tcp", nil, resolvedBackend)
 	if err != nil {
 		logger.Printf("backend dial failed client=%s backend=%s error=%v", client.RemoteAddr(), backendAddress, err)
