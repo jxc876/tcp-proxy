@@ -77,6 +77,7 @@ func ProxyConnections(client, backend *net.TCPConn, logger *log.Logger) {
 	waitGroup.Add(2)
 
 	// Set up io.Copy and signal the WaitGroup when it finishes.
+	// defining this inline allows it to capture variables (ex: waitGroup & logger)
 	copyStream := func(destination, source *net.TCPConn, direction string) {
 		defer waitGroup.Done()
 
